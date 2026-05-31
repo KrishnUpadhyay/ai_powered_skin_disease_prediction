@@ -1,0 +1,48 @@
+# Flutter build and tool files
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android specific
+.gradle/
+local.properties
+*.apk
+*.ap_
+*.aab
+
+# iOS specific
+.xcodeproj/
+.xcworkspace/
+*.mode1v3
+*.mode2v3
+*.perspectivev3
+
+# Windows specific
+bin/
+obj/
+*.exe
+*.dll
+*.pdb
+
+# Python specific cache and virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+.venv/
+env/
+.env/
+
+# Large binaries and model checkpoints (GitHub 100MB limit)
+backend/model/skin_model.h5
+
+# Local persistent databases
+backend/diary.db
+
+# OS specific files
+.DS_Store
+Thumbs.db
