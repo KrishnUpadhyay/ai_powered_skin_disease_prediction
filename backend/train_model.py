@@ -2,32 +2,34 @@ import os
 import json
 import numpy as np
 import tensorflow as tf
-from tensorflow.keras.applications import EfficientNetB2
-from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout
+from tensorflow.keras.applications import EfficientNetB4
+from tensorflow.keras.layers import GlobalAveragePooling2D, Dense, Dropout, BatchNormalization
 from tensorflow.keras.models import Model
 from tensorflow.keras.optimizers import Adam
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
 
-def build_model(num_classes=7):
-    # Load base pre-trained EfficientNetB2 model (wider compound scale, ~2-4% higher visual classification precision)
-    base_model = EfficientNetB2(weights='imagenet', include_top=False, input_shape=(260, 260, 3))
+def build_model(num_classes=30):
+    # Upgraded base pre-trained EfficientNetB4 model (scales resolution, depth, and width; ImageNet Top-1 Accuracy: 82.9%)
+    base_model = EfficientNetB4(weights='imagenet', include_top=False, input_shape=(380, 380, 3))
     
     # Freeze the base model layers initially
     base_model.trainable = False
     
-    # Add custom diagnostic head with L2 regularization to prevent overfitting
+    # Add custom diagnostic head with dual BatchNormalization and L2 regularization to accelerate convergence and prevent overfitting
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
-    x = Dense(256, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.005))(x)
-    x = Dropout(0.4)(x)
+    x = BatchNormalization()(x)
+    x = Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.005))(x)
+    x = BatchNormalization()(x)
+    x = Dropout(0.5)(x)
     predictions = Dense(num_classes, activation='softmax')(x)
     
     model = Model(inputs=base_model.input, outputs=predictions)
     return model, base_model
 
 def train_skin_classifier(dataset_dir):
-    print("Initializing upgraded high-accuracy EfficientNetB2 training pipeline...")
+    print("Initializing upgraded ultra-accuracy EfficientNetB4 training pipeline...")
     
     # Setup data generators with strong clinical-lesion augmentations
     train_datagen = ImageDataGenerator(
@@ -43,19 +45,19 @@ def train_skin_classifier(dataset_dir):
         validation_split=0.2
     )
     
-    # Flow training and validation inputs (Scaled to B2 specific 260x260 resolution)
+    # Flow training and validation inputs (Scaled to B4 specific 380x380 resolution)
     train_generator = train_datagen.flow_from_directory(
         dataset_dir,
-        target_size=(260, 260),
-        batch_size=32,
+        target_size=(380, 380),
+        batch_size=16, # EfficientNetB4 requires smaller batch sizes due to larger memory footprint
         class_mode='categorical',
         subset='training'
     )
     
     val_generator = train_datagen.flow_from_directory(
         dataset_dir,
-        target_size=(260, 260),
-        batch_size=32,
+        target_size=(380, 380),
+        batch_size=16,
         class_mode='categorical',
         subset='validation'
     )
@@ -70,7 +72,7 @@ def train_skin_classifier(dataset_dir):
     with open('model/class_labels.json', 'w') as f:
         json.dump(labels_mapping, f, indent=2)
         
-    # ⚖️ Dynamic manual calculation of class weights to combat extreme dataset imbalances
+    # Calculate dynamic class weights to combat extreme dataset imbalances
     class_counts = train_generator.classes
     total_samples = len(class_counts)
     class_frequencies = {}
@@ -81,9 +83,9 @@ def train_skin_classifier(dataset_dir):
     for k, v in class_frequencies.items():
         class_weights[k] = total_samples / (num_classes * v)
         
-    print(f"Calculated Dynamic Class Weights: {class_weights}")
+    print(f"Calculated Dynamic Class Weights across {num_classes} classes: {class_weights}")
     
-    # Compile model
+    # Compile model with categorical crossentropy (or custom loss)
     model.compile(
         optimizer=Adam(learning_rate=1e-4),
         loss='categorical_crossentropy',
@@ -92,8 +94,8 @@ def train_skin_classifier(dataset_dir):
     
     # Define optimization callbacks
     callbacks = [
-        EarlyStopping(monitor='val_loss', patience=8, restore_best_weights=True, verbose=1),
-        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=4, min_lr=1e-6, verbose=1),
+        EarlyStopping(monitor='val_loss', patience=6, restore_best_weights=True, verbose=1),
+        ReduceLROnPlateau(monitor='val_loss', factor=0.5, patience=3, min_lr=1e-6, verbose=1),
         ModelCheckpoint('model/skin_model.h5', monitor='val_loss', save_best_only=True, verbose=1)
     ]
     
@@ -101,7 +103,7 @@ def train_skin_classifier(dataset_dir):
     print("Phase 1: Training custom classification head...")
     model.fit(
         train_generator,
-        epochs=15,
+        epochs=12,
         validation_data=val_generator,
         class_weight=class_weights,
         callbacks=callbacks
@@ -113,7 +115,7 @@ def train_skin_classifier(dataset_dir):
     for layer in base_model.layers[:-20]:
         layer.trainable = False
         
-    # Re-compile model with a lower learning rate to preserve features
+    # Re-compile model with a lower learning rate to preserve weights
     model.compile(
         optimizer=Adam(learning_rate=1e-5),
         loss='categorical_crossentropy',
@@ -124,13 +126,13 @@ def train_skin_classifier(dataset_dir):
     print("Starting advanced fine-tuning pipeline...")
     model.fit(
         train_generator,
-        epochs=25,
+        epochs=20,
         validation_data=val_generator,
         class_weight=class_weights,
         callbacks=callbacks
     )
     
-    print("DermaScan AI training complete! Upgraded EfficientNetB2 checkpoint saved to model/skin_model.h5")
+    print(f"DermaScan AI training complete! Upgraded {num_classes}-class EfficientNetB4 checkpoint saved to model/skin_model.h5")
 
 if __name__ == '__main__':
     dataset_path = './dataset'

@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 import '../services/api_service.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/gradient_button.dart';
 
 class RegisterScreen extends StatefulWidget {
   const RegisterScreen({super.key});
@@ -43,12 +47,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
-      // Post registration data directly to backend
+      // Post registration data to backend
       await ApiService.register(name, email, password);
 
       if (!mounted) return;
 
-      // Show gorgeous success dialog mapping details
       _showSuccessDialog(name);
     } catch (e) {
       if (!mounted) return;
@@ -65,22 +68,29 @@ class _RegisterScreenState extends State<RegisterScreen> {
   }
 
   void _showSuccessDialog(String name) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        backgroundColor: isDark ? AppColors.surface : Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(
           children: [
-            Icon(Icons.check_circle, color: AppTheme.lightPrimaryColor),
-            SizedBox(width: 10),
-            Text('Account Created!'),
+            const Icon(Icons.check_circle_rounded, color: AppColors.success, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                'Success!',
+                style: AppTextStyles.heading3(isDark: isDark),
+              ),
+            ),
           ],
         ),
         content: Text(
           'Congratulations $name! Your DermaScan AI clinical scan profile has been successfully generated in the database.\n\n'
           'You may now log in to proceed.',
-          style: const TextStyle(fontSize: 13.5, height: 1.45),
+          style: AppTextStyles.body(isDark: isDark),
         ),
         actions: [
           ElevatedButton(
@@ -88,7 +98,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
               Navigator.pop(ctx); // Close dialog
               Navigator.pop(context); // Pop back to login screen
             },
-            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.lightPrimaryColor),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: isDark ? AppColors.background : Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+            ),
             child: const Text('Back to Login'),
           ),
         ],
@@ -99,240 +113,243 @@ class _RegisterScreenState extends State<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? AppTheme.darkPrimaryColor : AppTheme.lightPrimaryColor;
-    final cardColor = isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor;
-    final textLightColor = isDark ? AppTheme.darkTextLight : AppTheme.lightTextLight;
 
     return Scaffold(
+      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
       appBar: AppBar(
-        title: const Text('Generate Profile'),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        foregroundColor: isDark ? Colors.white : AppTheme.lightTextDark,
+        title: Text(
+          'Generate Profile',
+          style: AppTextStyles.title(isDark: isDark),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios),
+          icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
           onPressed: () => Navigator.pop(context),
         ),
       ),
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark 
-                ? [AppTheme.darkBackgroundColor, const Color(0xFF0F172A)] 
-                : [AppTheme.lightBackgroundColor, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 12.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Register Card
-                  Card(
-                    color: cardColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      side: BorderSide(
-                        color: isDark ? primaryColor.withOpacity(0.1) : Colors.grey.shade200, 
-                        width: 1.5
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 12.0),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Register Card
+                GlassCard(
+                  borderRadius: 24,
+                  padding: const EdgeInsets.all(24.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Text(
+                        'Register Account',
+                        style: AppTextStyles.title(isDark: isDark),
                       ),
-                    ),
-                    child: Padding(
-                      padding: const EdgeInsets.all(24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Text(
-                            'Register Account',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Join DermaScan AI to secure custom skin records',
-                            style: TextStyle(color: textLightColor, fontSize: 12),
-                          ),
-                          const SizedBox(height: 20),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Join DermaScan AI to secure custom skin records',
+                        style: AppTextStyles.bodyMuted(isDark: isDark),
+                      ),
+                      const SizedBox(height: 20),
 
-                          if (_errorMessage != null) ...[
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.red.withOpacity(0.2)),
-                              ),
-                              child: Row(
-                                children: [
-                                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
-                                  const SizedBox(width: 10),
-                                  Expanded(
-                                    child: Text(
-                                      _errorMessage!,
-                                      style: const TextStyle(color: Colors.red, fontSize: 12.5, fontWeight: FontWeight.w500),
-                                    ),
+                      if (_errorMessage != null) ...[
+                        Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: AppColors.danger.withOpacity(0.08),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: AppColors.danger.withOpacity(0.2)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  _errorMessage!,
+                                  style: TextStyle(
+                                    color: AppColors.danger,
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
                                   ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(height: 18),
-                          ],
-
-                          // Full name input
-                          TextFormField(
-                            controller: _nameController,
-                            keyboardType: TextInputType.name,
-                            decoration: InputDecoration(
-                              labelText: 'Full Name',
-                              prefixIcon: Icon(Icons.person_outline, color: primaryColor),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor, width: 2),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your name';
-                              }
-                              if (value.trim().length < 2) {
-                                return 'Name must be at least 2 characters';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Email Address input
-                          TextFormField(
-                            controller: _emailController,
-                            keyboardType: TextInputType.emailAddress,
-                            decoration: InputDecoration(
-                              labelText: 'Email Address',
-                              prefixIcon: Icon(Icons.mail_outline, color: primaryColor),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor, width: 2),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your email address';
-                              }
-                              final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
-                              if (!regex.hasMatch(value.trim())) {
-                                return 'Please enter a valid email format';
-                              }
-                              return null;
-                            },
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Password input
-                          TextFormField(
-                            controller: _passwordController,
-                            obscureText: _obscurePassword,
-                            decoration: InputDecoration(
-                              labelText: 'Password',
-                              prefixIcon: Icon(Icons.lock_outlined, color: primaryColor),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                  color: textLightColor,
                                 ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
                               ),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor, width: 2),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please enter your password';
-                              }
-                              if (value.length < 6) {
-                                return 'Password must be at least 6 characters';
-                              }
-                              return null;
-                            },
+                            ],
                           ),
-                          const SizedBox(height: 16),
+                        ),
+                        const SizedBox(height: 18),
+                      ],
 
-                          // Confirm Password input
-                          TextFormField(
-                            controller: _confirmPasswordController,
-                            obscureText: _obscureConfirmPassword,
-                            decoration: InputDecoration(
-                              labelText: 'Confirm Password',
-                              prefixIcon: Icon(Icons.lock_reset_outlined, color: primaryColor),
-                              suffixIcon: IconButton(
-                                icon: Icon(
-                                  _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                  color: textLightColor,
-                                ),
-                                onPressed: () {
-                                  setState(() {
-                                    _obscureConfirmPassword = !_obscureConfirmPassword;
-                                  });
-                                },
-                              ),
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor, width: 2),
-                              ),
-                            ),
-                            validator: (value) {
-                              if (value == null || value.isEmpty) {
-                                return 'Please confirm your password';
-                              }
-                              if (value != _passwordController.text) {
-                                return 'Passwords do not match';
-                              }
-                              return null;
-                            },
+                      // Full name input
+                      TextFormField(
+                        controller: _nameController,
+                        keyboardType: TextInputType.name,
+                        style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPrimary),
+                        decoration: InputDecoration(
+                          labelText: 'Full Name',
+                          labelStyle: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary),
+                          prefixIcon: Icon(Icons.person_outline_rounded, color: AppColors.primary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
                           ),
-                          const SizedBox(height: 24),
-
-                          // Register Action button
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : _handleRegister,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: primaryColor,
-                              foregroundColor: isDark ? AppTheme.darkBackgroundColor : Colors.white,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Generate Account Profile'),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
                           ),
-                        ],
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your name';
+                          }
+                          if (value.trim().length < 2) {
+                            return 'Name must be at least 2 characters';
+                          }
+                          return null;
+                        },
                       ),
-                    ),
+                      const SizedBox(height: 16),
+
+                      // Email input
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPrimary),
+                        decoration: InputDecoration(
+                          labelText: 'Email Address',
+                          labelStyle: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary),
+                          prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.primary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.trim().isEmpty) {
+                            return 'Please enter your email address';
+                          }
+                          final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+                          if (!regex.hasMatch(value.trim())) {
+                            return 'Please enter a valid email format';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Password input
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPrimary),
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          labelStyle: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary),
+                          prefixIcon: Icon(Icons.lock_outlined, color: AppColors.primary),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscurePassword = !_obscurePassword;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your password';
+                          }
+                          if (value.length < 6) {
+                            return 'Password must be at least 6 characters';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Confirm Password input
+                      TextFormField(
+                        controller: _confirmPasswordController,
+                        obscureText: _obscureConfirmPassword,
+                        style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPrimary),
+                        decoration: InputDecoration(
+                          labelText: 'Confirm Password',
+                          labelStyle: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary),
+                          prefixIcon: Icon(Icons.lock_reset_rounded, color: AppColors.primary),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscureConfirmPassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
+                              color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+                            ),
+                            onPressed: () {
+                              setState(() {
+                                _obscureConfirmPassword = !_obscureConfirmPassword;
+                              });
+                            },
+                          ),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(14),
+                            borderSide: const BorderSide(color: AppColors.primary, width: 2),
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please confirm your password';
+                          }
+                          if (value != _passwordController.text) {
+                            return 'Passwords do not match';
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Register button
+                      GradientButton(
+                        text: 'Generate Account Profile',
+                        isLoading: _isLoading,
+                        onPressed: _handleRegister,
+                        pulseGlow: true,
+                      ),
+                    ],
                   ),
-                  const SizedBox(height: 20),
-                ],
-              ),
+                ).animate().fade(duration: 500.ms).slideY(begin: 0.1, end: 0),
+              ],
             ),
           ),
         ),

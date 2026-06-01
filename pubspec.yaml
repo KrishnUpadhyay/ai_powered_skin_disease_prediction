@@ -43,6 +43,11 @@ dependencies:
   # Image Caching & loading utilities
   cached_network_image: ^3.3.1
 
+  # Typography, Animation & Shimmer Loading
+  google_fonts: ^6.2.1
+  flutter_animate: ^4.5.0
+  shimmer: ^3.0.0
+
   # Date formats
   intl: ^0.19.0
 

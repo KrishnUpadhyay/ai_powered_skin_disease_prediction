@@ -61,6 +61,7 @@ except ImportError as e:
     print(f"Scientific libraries not loaded ({str(e)}). Running in high-fidelity simulated diagnostic mode for scans.")
 
 model = None
+# 🔬 EXPANDED 30-CLASS CLINICAL DIAGNOSTIC CATALOG REPRESENTING HIGH-DIVERSITY SKIN DISEASES
 class_labels = {
     "0": "Actinic Keratosis",
     "1": "Basal Cell Carcinoma",
@@ -68,32 +69,58 @@ class_labels = {
     "3": "Dermatofibroma",
     "4": "Melanocytic Nevi",
     "5": "Melanoma",
-    "6": "Vascular Lesions"
+    "6": "Vascular Lesions",
+    "7": "Acne Vulgaris",
+    "8": "Atopic Dermatitis (Eczema)",
+    "9": "Psoriasis",
+    "10": "Seborrheic Keratosis",
+    "11": "Tinea Versicolor (Fungal)",
+    "12": "Contact Dermatitis",
+    "13": "Herpes Simplex (Viral)",
+    "14": "Impetigo (Bacterial)",
+    "15": "Rosacea",
+    "16": "Urticaria (Hives)",
+    "17": "Vitiligo",
+    "18": "Alopecia Areata",
+    "19": "Keloid Scar",
+    "20": "Lichen Planus",
+    "21": "Scabies (Parasitic)",
+    "22": "Warts (HPV)",
+    "23": "Chickenpox",
+    "24": "Shingles (Herpes Zoster)",
+    "25": "Melasma",
+    "26": "Folliculitis",
+    "27": "Drug Eruption",
+    "28": "Erythema Nodosum",
+    "29": "Squamous Cell Carcinoma"
 }
 
 def create_dummy_model():
     if not HAS_AI_LIBS: return
-    print("Pre-compiled model not found. Generating structurally compatible skin_model.h5 with EfficientNetB2 base...")
+    num_classes = len(class_labels)
+    print(f"Generating structurally compatible skin_model.h5 with EfficientNetB4 base matching {num_classes} classes...")
     os.makedirs(MODEL_DIR, exist_ok=True)
     
-    # Upgraded structurally compatible skeleton: EfficientNetB2, shape (260, 260, 3)
-    base_model = tf.keras.applications.EfficientNetB2(weights=None, include_top=False, input_shape=(260, 260, 3))
+    # Upgraded B4 Skeleton: Input shape (380, 380, 3), GAP, BatchNormalizations, Dense(512), Dense(30)
+    base_model = tf.keras.applications.EfficientNetB4(weights=None, include_top=False, input_shape=(380, 380, 3))
     x = base_model.output
     x = tf.keras.layers.GlobalAveragePooling2D()(x)
-    x = tf.keras.layers.Dense(256, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.005))(x)
-    x = tf.keras.layers.Dropout(0.4)(x)
-    predictions = tf.keras.layers.Dense(7, activation='softmax')(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dense(512, activation='relu', kernel_regularizer=tf.keras.regularizers.l2(0.005))(x)
+    x = tf.keras.layers.BatchNormalization()(x)
+    x = tf.keras.layers.Dropout(0.5)(x)
+    predictions = tf.keras.layers.Dense(num_classes, activation='softmax')(x)
     
     dummy_model = tf.keras.models.Model(inputs=base_model.input, outputs=predictions)
     dummy_model.save(MODEL_PATH)
-    print(f"Upgraded B2-skeleton dummy model saved to: {MODEL_PATH}")
+    print(f"Upgraded B4-skeleton dummy model saved successfully: {MODEL_PATH}")
 
 def initialize_class_labels():
     os.makedirs(MODEL_DIR, exist_ok=True)
-    if not os.path.exists(LABELS_PATH):
-        with open(LABELS_PATH, 'w') as f:
-            json.dump(class_labels, f, indent=2)
-        print(f"Default class labels saved to: {LABELS_PATH}")
+    # Always overwrite class labels to ensure all 30 classes are fully synched
+    with open(LABELS_PATH, 'w') as f:
+        json.dump(class_labels, f, indent=2)
+    print(f"Upgraded 30-class labels successfully synchronized to: {LABELS_PATH}")
 
 def load_system_resources():
     global model, class_labels
@@ -111,7 +138,7 @@ def load_system_resources():
         with open(LABELS_PATH, 'r') as f:
             class_labels = json.load(f)
             
-        print("Loading EfficientNetB2 classifier...")
+        print("Loading EfficientNetB4 classifier...")
         model = tf.keras.models.load_model(MODEL_PATH)
         print("DermaScan AI resources successfully initialized.")
     else:
@@ -121,29 +148,53 @@ def load_system_resources():
 load_system_resources()
 
 def get_clinical_recommendation(disease, severity):
+    # Tailored recommendations mapping common skin diseases
+    if disease in ["Melanoma", "Basal Cell Carcinoma", "Squamous Cell Carcinoma"]:
+        return (
+            f"ALERT: AI detects symptoms highly consistent with {disease} (Malignant lesion type). "
+            "Please schedule an URGENT clinical checkup with a board-certified dermatologist for a professional biopsy. "
+            "Protect the area from sun exposure and avoid rubbing or picking."
+        )
+    elif disease in ["Atopic Dermatitis (Eczema)", "Psoriasis", "Contact Dermatitis"]:
+        return (
+            f"AI classification indicates symptoms consistent with chronic inflammatory condition: {disease}. "
+            "Keep the skin highly hydrated with thick, fragrance-free emollient creams. "
+            "Avoid hot water and harsh chemical soaps. Consult a doctor for potential topical steroid prescriptions."
+        )
+    elif disease in ["Acne Vulgaris", "Rosacea", "Folliculitis"]:
+        return (
+            f"AI matches lesion to dermatosis category: {disease}. "
+            "Cleanse the face twice daily with a mild, non-comedogenic cleanser. "
+            "Avoid squeezing or touching. Seek clinical evaluation for tailored topical retinoids or benzoyl peroxide guides."
+        )
+    elif disease in ["Tinea Versicolor (Fungal)", "Impetigo (Bacterial)", "Scabies (Parasitic)"]:
+        return (
+            f"AI suggests an active localized infection: {disease}. "
+            "Keep the affected area clean, dry, and partitioned from others to prevent transmission. "
+            "Visit your doctor to obtain targeted antifungal, antibacterial, or antiparasitic topical prescriptions."
+        )
+    
     if severity == "Severe":
         return (
-            f"ALERT: AI detects symptoms highly consistent with {disease}. "
-            "Please schedule an URGENT clinical checkup with a board-certified dermatologist for a professional biopsy. "
-            "Avoid sun exposure and do not pick at the lesion."
+            f"ALERT: AI detects symptoms consistent with {disease}. "
+            "We recommend scheduling a clinical dermatological checkup to verify these findings and check for changes in borders or color."
         )
     elif severity == "Moderate":
         return (
             f"AI matches lesion to {disease} with moderate confidence. "
-            "Keep the affected area well-moisturized and apply broad-spectrum SPF 30+ sunscreen. "
-            "Log changes daily and consult a doctor if the borders enlarge or bleed."
+            "Log visual changes daily in your Skin Diary. Consult a healthcare provider if size, borders, or texture enlarge."
         )
     else:
         return (
             f"Lesion analyzed as {disease} (Mild / benign appearance). "
-            "Apply standard topical creams. Track regularly. Seek doctor guidance if symptoms worsen."
+            "Track regularly using your scan timeline. Consult a clinician if any irritation or bleeding occurs."
         )
 
 @app.route('/health', methods=['GET'])
 def health():
     return jsonify({
         "status": "ok",
-        "model": "EfficientNetB2" if HAS_AI_LIBS else "Simulator",
+        "model": "EfficientNetB4" if HAS_AI_LIBS else "Simulator",
         "classes": len(class_labels)
     }), 200
 
@@ -195,16 +246,16 @@ def predict():
         
     try:
         if HAS_AI_LIBS:
-            # 1. Read and preprocess the uploaded image using TF/Pillow (scaled to 260x260 for B2 accuracy)
+            # 1. Read and preprocess the uploaded image (scaled strictly to B4 380x380)
             img_bytes = file.read()
             pil_img = Image.open(BytesIO(img_bytes)).convert('RGB')
             orig_w, orig_h = pil_img.size
             
-            resized_img = pil_img.resize((260, 260))
+            resized_img = pil_img.resize((380, 380))
             img_array = np.array(resized_img, dtype=np.float32) / 255.0
             img_input = np.expand_dims(img_array, axis=0)
             
-            # 2. EfficientNetB2 Inference
+            # 2. EfficientNetB4 Inference
             predictions = model.predict(img_input)[0]
             max_idx = int(np.argmax(predictions))
             confidence = float(predictions[max_idx])
@@ -222,8 +273,7 @@ def predict():
             # 4. Generate Grad-CAM Heatmap overlay as base64 string
             heatmap_base64 = get_gradcam_heatmap(model, img_input, res_width=orig_w, res_height=orig_h)
         else:
-            # 🔮 UPGRADED HIGH-FIDELITY SIMULATION MODE (Intelligent deterministic hashing)
-            # We map prediction parameters to image name hashes to guarantee consistency
+            # 🔮 UPGRADED HIGH-FIDELITY SIMULATION MODE (Intelligent deterministic hashing across 30 diseases)
             img_name = file.filename
             name_hash = int(hashlib.md5(img_name.encode()).hexdigest(), 16)
             
@@ -232,25 +282,25 @@ def predict():
             # Select disease deterministically based on image name hash
             disease_name = classes[name_hash % len(classes)]
             
-            # Calculate dynamic confidence (high consistency, standard deviation of 85%)
-            confidence = round(0.78 + (name_hash % 16) * 0.01, 4)
+            # Calculate dynamic confidence (range 72% - 94%)
+            confidence = round(0.72 + (name_hash % 23) * 0.01, 4)
             
             # Construct probability distribution
             other_classes = [c for c in classes if c != disease_name]
             all_preds = [
                 {"label": disease_name, "confidence": confidence},
-                {"label": other_classes[name_hash % len(other_classes)], "confidence": round((1.0 - confidence) * 0.7, 4)},
-                {"label": other_classes[(name_hash + 1) % len(other_classes)], "confidence": round((1.0 - confidence) * 0.3, 4)},
+                {"label": other_classes[name_hash % len(other_classes)], "confidence": round((1.0 - confidence) * 0.65, 4)},
+                {"label": other_classes[(name_hash + 1) % len(other_classes)], "confidence": round((1.0 - confidence) * 0.35, 4)},
             ]
             
             # Solid 1x1 transparent red pixel base64 mock heatmap overlay
             heatmap_base64 = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
 
-        # Common severity and recommendations
-        is_high_risk_disease = disease_name in ["Melanoma", "Basal Cell Carcinoma"]
-        if confidence >= 0.80 and is_high_risk_disease:
+        # Common severity
+        is_high_risk_disease = disease_name in ["Melanoma", "Basal Cell Carcinoma", "Squamous Cell Carcinoma"]
+        if confidence >= 0.78 and is_high_risk_disease:
             severity = "Severe"
-        elif confidence >= 0.60:
+        elif confidence >= 0.55:
             severity = "Moderate"
         else:
             severity = "Mild"

@@ -1,6 +1,11 @@
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import '../theme/app_theme.dart';
+import 'package:flutter_animate/flutter_animate.dart';
+import '../theme/app_colors.dart';
+import '../theme/app_text_styles.dart';
 import '../services/api_service.dart';
+import '../widgets/glass_card.dart';
+import '../widgets/gradient_button.dart';
 import 'register_screen.dart';
 import 'home_screen.dart';
 
@@ -15,7 +20,7 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  
+
   bool _isLoading = false;
   bool _obscurePassword = true;
   String? _errorMessage;
@@ -39,7 +44,7 @@ class _LoginScreenState extends State<LoginScreen> {
       final email = _emailController.text.trim();
       final password = _passwordController.text;
 
-      // Authenticate directly with the Flask backend API
+      // Authenticate with backend API
       final user = await ApiService.login(email, password);
 
       if (!mounted) return;
@@ -48,19 +53,25 @@ class _LoginScreenState extends State<LoginScreen> {
         SnackBar(
           content: Row(
             children: [
-              const Icon(Icons.verified, color: Colors.white),
+              const Icon(Icons.verified_user_rounded, color: Colors.white),
               const SizedBox(width: 10),
-              Text('Welcome back, ${user['name']}! Ready for skin scans.'),
+              Expanded(child: Text('Welcome back, ${user['name']}! Ready for skin scans.')),
             ],
           ),
-          backgroundColor: AppTheme.lightPrimaryColor,
+          backgroundColor: AppColors.primary,
         ),
       );
 
-      // Route directly to the main Home Dashboard Screen
+      // Route directly to main Home Dashboard Screen
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (_) => const HomeScreen()),
+        PageRouteBuilder(
+          pageBuilder: (context, animation, secondaryAnimation) => const HomeScreen(),
+          transitionsBuilder: (context, animation, secondaryAnimation, child) {
+            return FadeTransition(opacity: animation, child: child);
+          },
+          transitionDuration: const Duration(milliseconds: 600),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -79,103 +90,111 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final primaryColor = isDark ? AppTheme.darkPrimaryColor : AppTheme.lightPrimaryColor;
-    final cardColor = isDark ? AppTheme.darkCardColor : AppTheme.lightCardColor;
-    final textLightColor = isDark ? AppTheme.darkTextLight : AppTheme.lightTextLight;
 
     return Scaffold(
-      body: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: isDark 
-                ? [AppTheme.darkBackgroundColor, const Color(0xFF0F172A)] 
-                : [AppTheme.lightBackgroundColor, Colors.white],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
-        ),
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 28.0, vertical: 36.0),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  // Glowing AI scanner pulsing header logo
-                  Center(
-                    child: Hero(
-                      tag: 'brand_logo',
+      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
+      body: Stack(
+        children: [
+          // Background ambient glows (only on dark mode)
+          if (isDark) ...[
+            Positioned(
+              top: -100,
+              left: -100,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.primary.withOpacity(0.15),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              bottom: -100,
+              right: -100,
+              child: ImageFiltered(
+                imageFilter: ImageFilter.blur(sigmaX: 80, sigmaY: 80),
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: AppColors.secondary.withOpacity(0.15),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
+          Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 36.0),
+              child: Form(
+                key: _formKey,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    // Brand logo circle gradient badge
+                    Center(
                       child: Container(
-                        padding: const EdgeInsets.all(20),
+                        width: 80,
+                        height: 80,
                         decoration: BoxDecoration(
                           shape: BoxShape.circle,
-                          color: primaryColor.withOpacity(0.08),
-                          border: Border.all(color: primaryColor.withOpacity(0.2), width: 2),
+                          gradient: const LinearGradient(
+                            colors: AppColors.heroGradient,
+                          ),
                           boxShadow: [
                             BoxShadow(
-                              color: primaryColor.withOpacity(0.05),
+                              color: AppColors.primary.withOpacity(0.3),
                               blurRadius: 20,
-                              spreadRadius: 5,
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
-                        child: Icon(
-                          Icons.radar,
-                          size: 64,
-                          color: primaryColor,
+                        child: const Icon(
+                          Icons.shield_rounded,
+                          size: 38,
+                          color: Colors.white,
                         ),
-                      ),
+                      )
+                          .animate()
+                          .scale(duration: 800.ms, curve: Curves.elasticOut)
+                          .shimmer(delay: 800.ms, duration: 1500.ms, colors: [Colors.transparent, Colors.white30, Colors.transparent]),
                     ),
-                  ),
-                  const SizedBox(height: 24),
-                  
-                  // App Brand Title
-                  Center(
-                    child: Text(
-                      'DermaScan AI',
-                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 0.5,
-                            color: isDark ? Colors.white : AppTheme.lightTextDark,
-                          ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Center(
-                    child: Text(
-                      'Clinical Deep Learning Diagnostics System',
-                      style: TextStyle(
-                        color: textLightColor,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w500,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
+                    const SizedBox(height: 24),
 
-                  // Login Form Card
-                  Card(
-                    color: cardColor,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(24),
-                      side: BorderSide(
-                        color: isDark ? primaryColor.withOpacity(0.1) : Colors.grey.shade200, 
-                        width: 1.5
+                    // App Title
+                    Center(
+                      child: Text(
+                        'DermaScan AI',
+                        style: AppTextStyles.heading2(isDark: isDark),
                       ),
                     ),
-                    child: Padding(
+                    const SizedBox(height: 6),
+                    Center(
+                      child: Text(
+                        'Clinical Deep Learning Diagnostics System',
+                        style: AppTextStyles.bodyMuted(isDark: isDark),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                    const SizedBox(height: 32),
+
+                    // Glassmorphic Form Card
+                    GlassCard(
+                      borderRadius: 24,
                       padding: const EdgeInsets.all(24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           Text(
                             'Sign In',
-                            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                ),
+                            style: AppTextStyles.title(isDark: isDark),
                           ),
                           const SizedBox(height: 20),
 
@@ -183,18 +202,22 @@ class _LoginScreenState extends State<LoginScreen> {
                             Container(
                               padding: const EdgeInsets.all(12),
                               decoration: BoxDecoration(
-                                color: Colors.red.withOpacity(0.08),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: Colors.red.withOpacity(0.2)),
+                                color: AppColors.danger.withOpacity(0.08),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(color: AppColors.danger.withOpacity(0.2)),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.error_outline, color: Colors.red, size: 20),
+                                  const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 20),
                                   const SizedBox(width: 10),
                                   Expanded(
                                     child: Text(
                                       _errorMessage!,
-                                      style: const TextStyle(color: Colors.red, fontSize: 12.5, fontWeight: FontWeight.w500),
+                                      style: TextStyle(
+                                        color: AppColors.danger,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                     ),
                                   ),
                                 ],
@@ -203,24 +226,31 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 18),
                           ],
 
-                          // Email text field input
+                          // Email field
                           TextFormField(
                             controller: _emailController,
                             keyboardType: TextInputType.emailAddress,
+                            style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPrimary),
                             decoration: InputDecoration(
                               labelText: 'Email Address',
-                              prefixIcon: Icon(Icons.mail_outline, color: primaryColor),
+                              labelStyle: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary),
+                              prefixIcon: Icon(Icons.mail_outline_rounded, color: AppColors.primary),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor, width: 2),
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
                               ),
                             ),
                             validator: (value) {
                               if (value == null || value.trim().isEmpty) {
-                                return 'Please enter your email address';
+                                  return 'Please enter your email address';
                               }
                               final regex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
                               if (!regex.hasMatch(value.trim())) {
@@ -229,19 +259,21 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-                          const SizedBox(height: 18),
+                          const SizedBox(height: 16),
 
-                          // Password text field input
+                          // Password field
                           TextFormField(
                             controller: _passwordController,
                             obscureText: _obscurePassword,
+                            style: TextStyle(color: isDark ? Colors.white : AppColors.lightTextPrimary),
                             decoration: InputDecoration(
-                              labelText: 'Account Password',
-                              prefixIcon: Icon(Icons.lock_outlined, color: primaryColor),
+                              labelText: 'Password',
+                              labelStyle: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary),
+                              prefixIcon: Icon(Icons.lock_outlined, color: AppColors.primary),
                               suffixIcon: IconButton(
                                 icon: Icon(
                                   _obscurePassword ? Icons.visibility_outlined : Icons.visibility_off_outlined,
-                                  color: textLightColor,
+                                  color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
                                 ),
                                 onPressed: () {
                                   setState(() {
@@ -250,11 +282,16 @@ class _LoginScreenState extends State<LoginScreen> {
                                 },
                               ),
                               border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                              ),
+                              enabledBorder: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
                               ),
                               focusedBorder: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(12),
-                                borderSide: BorderSide(color: primaryColor, width: 2),
+                                borderRadius: BorderRadius.circular(14),
+                                borderSide: const BorderSide(color: AppColors.primary, width: 2),
                               ),
                             ),
                             validator: (value) {
@@ -269,67 +306,51 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           const SizedBox(height: 24),
 
-                          // Sign In Button
-                          ElevatedButton(
-                            onPressed: _isLoading ? null : _handleLogin,
-                            style: ElevatedButton.styleFrom(
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                              backgroundColor: primaryColor,
-                              foregroundColor: isDark ? AppTheme.darkBackgroundColor : Colors.white,
-                            ),
-                            child: _isLoading
-                                ? const SizedBox(
-                                    width: 22,
-                                    height: 22,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2.5,
-                                      color: Colors.white,
-                                    ),
-                                  )
-                                : const Text('Access Diagnostic Console'),
+                          // Submit Action
+                          GradientButton(
+                            text: 'Access Diagnostic Console',
+                            isLoading: _isLoading,
+                            onPressed: _handleLogin,
+                            pulseGlow: true,
                           ),
                         ],
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 24),
+                    ).animate().fade(duration: 500.ms).slideY(begin: 0.1, end: 0),
+                    const SizedBox(height: 24),
 
-                  // Route to Register Link
-                  Center(
-                    child: TextButton(
-                      onPressed: () {
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (_) => const RegisterScreen()),
-                        );
-                      },
-                      child: RichText(
-                        text: TextSpan(
-                          text: "Don't have a diagnostic account? ",
-                          style: TextStyle(
-                            color: textLightColor,
-                            fontSize: 13,
-                            fontFamily: Theme.of(context).textTheme.bodyMedium?.fontFamily,
-                          ),
-                          children: [
-                            TextSpan(
-                              text: "Register Here",
-                              style: TextStyle(
-                                color: primaryColor,
-                                fontWeight: FontWeight.bold,
-                                decoration: TextDecoration.underline,
+                    // Registration link
+                    Center(
+                      child: TextButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (_) => const RegisterScreen()),
+                          );
+                        },
+                        child: RichText(
+                          text: TextSpan(
+                            text: "Don't have a diagnostic account? ",
+                            style: AppTextStyles.bodyMuted(isDark: isDark).copyWith(fontSize: 13),
+                            children: [
+                              TextSpan(
+                                text: "Register Here",
+                                style: TextStyle(
+                                  color: AppColors.primary,
+                                  fontWeight: FontWeight.bold,
+                                  decoration: TextDecoration.underline,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
           ),
-        ),
+        ],
       ),
     );
   }
