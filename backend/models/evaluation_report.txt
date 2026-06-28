@@ -1,0 +1,27 @@
+============================================================
+DermaScan AI Clinical Evaluation Report (Real AI Mode)
+============================================================
+Overall Evaluation Metrics:
+- Overall Accuracy: 10.0000% (Target: >90.00%)
+- Melanoma Recall:  0.0000% (Target: >92.00%)
+- Macro F1-score:   1.8182% (Target: >88.00%)
+
+Detailed Classification Report:
+                          precision    recall  f1-score   support
+
+                Melanoma     0.0000    0.0000    0.0000       300
+Melanocytic Nevi (Moles)     0.0000    0.0000    0.0000       300
+    Basal Cell Carcinoma     0.0000    0.0000    0.0000       300
+       Actinic Keratosis     0.0000    0.0000    0.0000       300
+        Benign Keratosis     0.0000    0.0000    0.0000       300
+          Dermatofibroma     0.0000    0.0000    0.0000       300
+        Vascular Lesions     0.0000    0.0000    0.0000       300
+     Eczema / Dermatitis     0.1000    1.0000    0.1818       300
+               Psoriasis     0.0000    0.0000    0.0000       300
+Tinea / Fungal Infection     0.0000    0.0000    0.0000       300
+
+                accuracy                         0.1000      3000
+               macro avg     0.0100    0.1000    0.0182      3000
+            weighted avg     0.0100    0.1000    0.0182      3000
+
+============================================================

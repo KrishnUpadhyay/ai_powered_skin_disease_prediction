@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_text_styles.dart';
@@ -13,8 +14,15 @@ import 'result_screen.dart';
 
 class ScanScreen extends StatefulWidget {
   final bool isEmbedded;
+  final Uint8List? initialCaptureBytes;
+  final String? initialCaptureName;
 
-  const ScanScreen({super.key, this.isEmbedded = false});
+  const ScanScreen({
+    super.key, 
+    this.isEmbedded = false,
+    this.initialCaptureBytes,
+    this.initialCaptureName,
+  });
 
   @override
   State<ScanScreen> createState() => _ScanScreenState();
@@ -33,6 +41,16 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    
+    // Auto-populate from camera direct-scan
+    if (widget.initialCaptureBytes != null) {
+      _selectedImageBytes = widget.initialCaptureBytes;
+      _selectedImageName = widget.initialCaptureName;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _runAIAnalysis();
+      });
+    }
+
     _breathingController = AnimationController(
       vsync: this,
       duration: const Duration(seconds: 2),
@@ -90,6 +108,33 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _handleCaptureCamera() async {
+    try {
+      final picker = ImagePicker();
+      final XFile? image = await picker.pickImage(
+        source: ImageSource.camera,
+        maxWidth: 1020,
+        maxHeight: 1020,
+      );
+
+      if (image != null) {
+        final bytes = await image.readAsBytes();
+        setState(() {
+          _selectedImageBytes = bytes;
+          _selectedImageName = image.name;
+        });
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Camera capture failed: $e'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
   Future<void> _runAIAnalysis() async {
     if (_selectedImageBytes == null || _selectedImageName == null) return;
 
@@ -111,6 +156,76 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
     });
 
     try {
+      // 1. Image Quality pre-scan validation check
+      final validation = await ApiService.validateImage(_selectedImageBytes!, _selectedImageName!);
+      
+      bool proceed = true;
+      if (validation['is_valid'] == false) {
+        progressTimer.pause();
+        
+        final List<dynamic> issues = validation['issues'] ?? [];
+        final issueText = issues.isNotEmpty 
+            ? issues.join('\n\n') 
+            : "The uploaded image does not meet our recommended lighting and sharpness thresholds.";
+            
+        if (!mounted) return;
+        final isDark = Theme.of(context).brightness == Brightness.dark;
+        
+        final choice = await showDialog<bool>(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            backgroundColor: isDark ? AppColors.surface : Colors.white,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              title: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: AppColors.warning, size: 28),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Quality Alert', style: AppTextStyles.heading3(isDark: isDark))),
+                ],
+              ),
+              content: Text(
+                'Our pre-scan quality checks flagged potential issues with your photo:\n\n'
+                '$issueText\n\n'
+                'For accurate AI diagnosis, we recommend retaking the photo in bright lighting and holding the camera steady.',
+                style: AppTextStyles.body(isDark: isDark),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, false),
+                  child: Text('Retake Photo', style: TextStyle(color: isDark ? AppColors.textSecondary : AppColors.lightTextSecondary)),
+                ),
+                ElevatedButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: isDark ? AppColors.background : Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                  child: const Text('Scan Anyway'),
+                ),
+              ],
+            ),
+          );
+          
+          if (choice != true) {
+            proceed = false;
+          } else {
+            progressTimer.resume();
+          }
+      }
+      
+      if (!proceed) {
+        progressTimer.cancel();
+        if (mounted) {
+          setState(() {
+            _isAnalyzing = false;
+          });
+        }
+        return;
+      }
+
+      // 2. Perform diagnostic classification scan
       final result = await ApiService.predict(_selectedImageBytes!, _selectedImageName!);
 
       progressTimer.cancel();
@@ -381,42 +496,90 @@ class _ScanScreenState extends State<ScanScreen> with TickerProviderStateMixin {
 
               // Upload dashed border card zone (only visible if image is not selected)
               if (_selectedImageBytes == null)
-                InkWell(
-                  onTap: _handlePickImage,
-                  borderRadius: BorderRadius.circular(20),
-                  child: CustomPaint(
-                    painter: _DashedRectPainter(
-                      color: AppColors.primary.withOpacity(0.4),
-                      strokeWidth: 1.5,
-                      gap: 5,
-                    ),
-                    child: Container(
-                      height: 140,
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.cloud_upload_outlined,
-                            color: AppColors.primary,
-                            size: 36,
-                          )
-                              .animate(onPlay: (controller) => controller.repeat(reverse: true))
-                              .slideY(begin: 0, end: -0.15, duration: 1.seconds, curve: Curves.easeInOut),
-                          const SizedBox(height: 12),
-                          Text(
-                            'Drag & drop or tap to upload',
-                            style: AppTextStyles.bodyBold(isDark: isDark),
+                Row(
+                  children: [
+                    Expanded(
+                      child: InkWell(
+                        onTap: _handlePickImage,
+                        borderRadius: BorderRadius.circular(24),
+                        child: GlassCard(
+                          borderRadius: 24,
+                          padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(
+                                Icons.photo_library_outlined,
+                                color: AppColors.primary,
+                                size: 38,
+                              ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                               .slideY(begin: 0, end: -0.1, duration: 1.seconds, curve: Curves.easeInOut),
+                              const SizedBox(height: 12),
+                              Text(
+                                'Upload Image',
+                                style: AppTextStyles.bodyBold(isDark: isDark),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Gallery or Files',
+                                style: AppTextStyles.label(isDark: isDark),
+                                textAlign: TextAlign.center,
+                              ),
+                            ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Accepted formats: JPG · PNG · HEIC',
-                            style: AppTextStyles.label(isDark: isDark),
-                          ),
-                        ],
+                        ),
                       ),
                     ),
-                  ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: InkWell(
+                        onTap: _handleCaptureCamera,
+                        borderRadius: BorderRadius.circular(24),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            borderRadius: BorderRadius.circular(24),
+                            border: Border.all(color: AppColors.primary.withOpacity(0.25)),
+                            gradient: LinearGradient(
+                              colors: [
+                                AppColors.primary.withOpacity(0.08),
+                                AppColors.secondary.withOpacity(0.04),
+                              ],
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                            ),
+                          ),
+                          child: GlassCard(
+                            borderRadius: 24,
+                            padding: const EdgeInsets.symmetric(vertical: 24, horizontal: 16),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(
+                                  Icons.camera_alt_outlined,
+                                  color: AppColors.accent,
+                                  size: 38,
+                                ).animate(onPlay: (controller) => controller.repeat(reverse: true))
+                                 .scale(begin: const Offset(1, 1), end: const Offset(1.08, 1.08), duration: 1.2.seconds, curve: Curves.easeInOut),
+                                const SizedBox(height: 12),
+                                Text(
+                                  'Direct Camera',
+                                  style: AppTextStyles.bodyBold(isDark: isDark),
+                                  textAlign: TextAlign.center,
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Capture Skin Scan',
+                                  style: AppTextStyles.label(isDark: isDark).copyWith(color: AppColors.accent.withOpacity(0.8)),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ).animate().fade(duration: 400.ms),
 
               // Selection Reset or Analysis Control Row

@@ -37,6 +37,9 @@ dependencies:
   # File Selector compatible with Windows/Mobile
   file_picker: ^11.0.0
 
+  # Camera capture support
+  image_picker: ^1.1.2
+
   # Progress Timeline Charts
   fl_chart: ^0.67.0
 
@@ -50,6 +53,9 @@ dependencies:
 
   # Date formats
   intl: ^0.19.0
+
+  # PDF generation
+  pdf: ^3.10.8
 
 dev_dependencies:
   flutter_test:

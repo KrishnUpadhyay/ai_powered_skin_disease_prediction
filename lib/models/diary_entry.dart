@@ -5,6 +5,9 @@ class DiaryEntry {
   final String severity;
   final DateTime date;
   final String imageBase64;
+  final String treatmentNotes;
+  final int treatmentProgress;
+  final String homeRemedies;
 
   DiaryEntry({
     this.id,
@@ -13,6 +16,9 @@ class DiaryEntry {
     required this.severity,
     required this.date,
     required this.imageBase64,
+    this.treatmentNotes = '',
+    this.treatmentProgress = 0,
+    this.homeRemedies = '',
   });
 
   factory DiaryEntry.fromJson(Map<String, dynamic> json) {
@@ -23,6 +29,9 @@ class DiaryEntry {
       severity: json['severity'] as String? ?? 'Moderate',
       date: DateTime.parse(json['date'] as String? ?? DateTime.now().toIso8601String()),
       imageBase64: json['image_base64'] as String? ?? '',
+      treatmentNotes: json['treatment_notes'] as String? ?? '',
+      treatmentProgress: json['treatment_progress'] as int? ?? 0,
+      homeRemedies: json['home_remedies'] as String? ?? '',
     );
   }
 
@@ -34,6 +43,9 @@ class DiaryEntry {
       'severity': severity,
       'date': date.toIso8601String(),
       'image_base64': imageBase64,
+      'treatment_notes': treatmentNotes,
+      'treatment_progress': treatmentProgress,
+      'home_remedies': homeRemedies,
     };
   }
 }

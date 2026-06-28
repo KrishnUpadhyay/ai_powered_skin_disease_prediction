@@ -11,6 +11,7 @@ import '../models/prediction_model.dart';
 import '../services/api_service.dart';
 import '../widgets/glass_card.dart';
 import 'result_screen.dart';
+import 'treatment_progress_screen.dart';
 
 class DiaryScreen extends StatefulWidget {
   final bool isEmbedded;
@@ -26,10 +27,15 @@ class _DiaryScreenState extends State<DiaryScreen> {
   bool _isLoading = true;
   String? _errorMessage;
 
+  List<Map<String, dynamic>> _symptomLogs = [];
+  bool _isLoadingSymptoms = true;
+  String? _symptomError;
+
   @override
   void initState() {
     super.initState();
     _fetchDiaryEntries();
+    _fetchSymptomLogs();
   }
 
   Future<void> _fetchDiaryEntries() async {
@@ -52,6 +58,31 @@ class _DiaryScreenState extends State<DiaryScreen> {
         setState(() {
           _errorMessage = e.toString();
           _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _fetchSymptomLogs() async {
+    if (!mounted) return;
+    setState(() {
+      _isLoadingSymptoms = true;
+      _symptomError = null;
+    });
+
+    try {
+      final logs = await ApiService.getSymptoms();
+      if (mounted) {
+        setState(() {
+          _symptomLogs = logs;
+          _isLoadingSymptoms = false;
+        });
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _symptomError = e.toString();
+          _isLoadingSymptoms = false;
         });
       }
     }
@@ -89,6 +120,42 @@ class _DiaryScreenState extends State<DiaryScreen> {
     }
   }
 
+  Widget _buildErrorState(String errorMessage, VoidCallback onRetry) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24.0),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 48),
+            const SizedBox(height: 16),
+            Text(
+              'Connection Error',
+              style: AppTextStyles.heading3(isDark: isDark),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'Could not retrieve database entries.\nError: $errorMessage',
+              textAlign: TextAlign.center,
+              style: AppTextStyles.bodyMuted(isDark: isDark),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh_rounded),
+              label: const Text('Retry Connection'),
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildEmptyState() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     return Center(
@@ -97,7 +164,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Centered magnifying glass representation
             Container(
               width: 100,
               height: 100,
@@ -125,24 +191,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
               textAlign: TextAlign.center,
               style: AppTextStyles.bodyMuted(isDark: isDark),
             ),
-            const SizedBox(height: 32),
-            ElevatedButton.icon(
-              onPressed: () {
-                // Switches to scanner tab or pushes scanner (handled by home screen shell)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Please select the "Scan" tab at the bottom to start!'),
-                    backgroundColor: AppColors.primary,
-                  ),
-                );
-              },
-              icon: const Icon(Icons.photo_camera_rounded, size: 20),
-              label: const Text('Scan Now'),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-            ),
           ],
         ),
       ),
@@ -155,7 +203,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
 
     final totalScans = _entries.length;
     
-    // Find most common condition
     final counts = <String, int>{};
     for (var e in _entries) {
       counts[e.disease] = (counts[e.disease] ?? 0) + 1;
@@ -256,7 +303,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
     final isDark = Theme.of(context).brightness == Brightness.dark;
     if (_entries.length < 2) return const SizedBox.shrink();
 
-    // Sort entries chronologically for plotting (oldest first)
     final sortedEntries = List<DiaryEntry>.from(_entries).reversed.toList();
     
     final spots = <FlSpot>[];
@@ -328,8 +374,8 @@ class _DiaryScreenState extends State<DiaryScreen> {
                             child: Text(
                               DateFormat('MM/dd').format(date),
                               style: TextStyle(
-                                fontSize: 9,
-                                color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+                                  fontSize: 9,
+                                  color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
                               ),
                             ),
                           );
@@ -400,45 +446,13 @@ class _DiaryScreenState extends State<DiaryScreen> {
     );
   }
 
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildScanHistoryTab() {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
-    Widget bodyContent = _isLoading
+    return _isLoading
         ? _buildShimmerSkeleton()
         : _errorMessage != null
-            ? Center(
-                child: Padding(
-                  padding: const EdgeInsets.all(24.0),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.error_outline_rounded, color: AppColors.danger, size: 48),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Connection Error',
-                        style: AppTextStyles.heading3(isDark: isDark),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Could not retrieve diary database entries.\nError: $_errorMessage',
-                        textAlign: TextAlign.center,
-                        style: AppTextStyles.bodyMuted(isDark: isDark),
-                      ),
-                      const SizedBox(height: 24),
-                      ElevatedButton.icon(
-                        onPressed: _fetchDiaryEntries,
-                        icon: const Icon(Icons.refresh_rounded),
-                        label: const Text('Retry Connection'),
-                        style: ElevatedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              )
+            ? _buildErrorState(_errorMessage!, _fetchDiaryEntries)
             : _entries.isEmpty
                 ? _buildEmptyState()
                 : RefreshIndicator(
@@ -466,7 +480,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                           padding: const EdgeInsets.only(bottom: 12.0),
                           child: InkWell(
                             onTap: () {
-                              // Tapping an entry reconstructs the PredictionResult and launches ResultScreen!
                               final result = PredictionResult(
                                 disease: entry.disease,
                                 confidence: entry.confidence,
@@ -476,6 +489,12 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                   {'label': entry.disease, 'confidence': entry.confidence},
                                 ],
                                 recommendation: 'This is a saved diagnosis from your history diary. Recommendation defaults to localized clinic consultation. Please check your physical symptom history if changes occur.',
+                                homeRemedies: entry.homeRemedies.isNotEmpty ? [entry.homeRemedies] : [],
+                                medicalTreatments: const [],
+                                processingLatency: 0.0,
+                                cancerRiskAlert: entry.severity.toUpperCase() == 'SEVERE' || 
+                                    entry.disease.contains('Melanoma') || 
+                                    entry.disease.contains('Carcinoma'),
                               );
                               Navigator.push(
                                 context,
@@ -493,7 +512,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                               borderRadius: 20,
                               child: Row(
                                 children: [
-                                  // Left side: vertical severity colored line
                                   Container(
                                     width: 4,
                                     height: 64,
@@ -503,8 +521,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 12),
-
-                                  // Base64 image thumbnail
                                   Container(
                                     width: 64,
                                     height: 64,
@@ -521,8 +537,6 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                         : Icon(Icons.image_rounded, color: AppColors.textMuted),
                                   ),
                                   const SizedBox(width: 14),
-
-                                  // Middle details
                                   Expanded(
                                     child: Column(
                                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -550,24 +564,57 @@ class _DiaryScreenState extends State<DiaryScreen> {
                                       ],
                                     ),
                                   ),
-
-                                  // Right severity pill
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                                    decoration: BoxDecoration(
-                                      color: severityColor.withOpacity(0.08),
-                                      borderRadius: BorderRadius.circular(100),
-                                      border: Border.all(color: severityColor.withOpacity(0.2)),
-                                    ),
-                                    child: Text(
-                                      entry.severity.toUpperCase(),
-                                      style: TextStyle(
-                                        color: severityColor,
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        letterSpacing: 0.5,
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                        decoration: BoxDecoration(
+                                          color: severityColor.withOpacity(0.08),
+                                          borderRadius: BorderRadius.circular(100),
+                                          border: Border.all(color: severityColor.withOpacity(0.2)),
+                                        ),
+                                        child: Text(
+                                          entry.severity.toUpperCase(),
+                                          style: TextStyle(
+                                            color: severityColor,
+                                            fontSize: 9,
+                                            fontWeight: FontWeight.bold,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
                                       ),
-                                    ),
+                                      const SizedBox(height: 10),
+                                      InkWell(
+                                        onTap: () async {
+                                          final updated = await Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (_) => TreatmentProgressScreen(initialEntry: entry),
+                                            ),
+                                          );
+                                          if (updated == true) {
+                                            _fetchDiaryEntries();
+                                          }
+                                        },
+                                        child: Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            const Icon(Icons.trending_up_rounded, color: AppColors.primary, size: 16),
+                                            const SizedBox(width: 4),
+                                            Text(
+                                              'Progress: ${entry.treatmentProgress}%',
+                                              style: const TextStyle(
+                                                fontSize: 10,
+                                                color: AppColors.primary,
+                                                fontWeight: FontWeight.bold,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -580,30 +627,403 @@ class _DiaryScreenState extends State<DiaryScreen> {
                       },
                     ),
                   );
+  }
 
-    if (widget.isEmbedded) {
-      return Scaffold(
-        backgroundColor: Colors.transparent,
-        body: bodyContent,
+  Widget _buildSymptomTrendsTab() {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    if (_isLoadingSymptoms) {
+      return _buildShimmerSkeleton();
+    }
+    if (_symptomError != null) {
+      return _buildErrorState(_symptomError!, _fetchSymptomLogs);
+    }
+    if (_symptomLogs.isEmpty) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(32.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 100,
+                height: 100,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: AppColors.secondary.withOpacity(0.08),
+                ),
+                child: const Icon(
+                  Icons.show_chart_rounded,
+                  size: 54,
+                  color: AppColors.secondary,
+                ),
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'No symptom records',
+                style: AppTextStyles.heading3(isDark: isDark),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 12),
+              Text(
+                "Use the 'Symptom Log' action on the Home screen dashboard to submit daily entries.",
+                textAlign: TextAlign.center,
+                style: AppTextStyles.bodyMuted(isDark: isDark),
+              ),
+            ],
+          ),
+        ),
       );
     }
 
-    return Scaffold(
-      backgroundColor: isDark ? AppColors.background : AppColors.lightBackground,
-      appBar: AppBar(
-        title: Text(
-          'DermaScan AI',
-          style: AppTextStyles.title(isDark: isDark),
+    final sortedLogs = List<Map<String, dynamic>>.from(_symptomLogs);
+    final recentLogs = sortedLogs.length > 7
+        ? sortedLogs.sublist(sortedLogs.length - 7)
+        : sortedLogs;
+
+    final itchSpots = <FlSpot>[];
+    final redSpots = <FlSpot>[];
+    final waterSpots = <FlSpot>[];
+
+    double sumItch = 0;
+    double sumRed = 0;
+    double sumWater = 0;
+
+    for (int i = 0; i < recentLogs.length; i++) {
+      final log = recentLogs[i];
+      final itch = (log['itchiness'] as num?)?.toDouble() ?? 0.0;
+      final red = (log['redness'] as num?)?.toDouble() ?? 0.0;
+      final water = (log['hydration'] as num?)?.toDouble() ?? 0.0;
+
+      sumItch += itch;
+      sumRed += red;
+      sumWater += water;
+
+      itchSpots.add(FlSpot(i.toDouble(), itch));
+      redSpots.add(FlSpot(i.toDouble(), red));
+      waterSpots.add(FlSpot(i.toDouble(), water / 2.4));
+    }
+
+    final avgItch = sumItch / recentLogs.length;
+    final avgRed = sumRed / recentLogs.length;
+    final avgWater = sumWater / recentLogs.length;
+
+    return RefreshIndicator(
+      onRefresh: _fetchSymptomLogs,
+      color: AppColors.primary,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: _buildSummaryStatCard(
+                    title: "Avg Itch",
+                    value: "${avgItch.toStringAsFixed(1)} / 5",
+                    color: AppColors.primary,
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildSummaryStatCard(
+                    title: "Avg Redness",
+                    value: "${avgRed.toStringAsFixed(1)} / 5",
+                    color: AppColors.danger,
+                    isDark: isDark,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _buildSummaryStatCard(
+                    title: "Avg Water",
+                    value: "${avgWater.toStringAsFixed(1)} gl",
+                    color: AppColors.accent,
+                    isDark: isDark,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+
+            GlassCard(
+              borderRadius: 24,
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        'Weekly Symptom Trends',
+                        style: AppTextStyles.title(isDark: isDark),
+                      ),
+                      const Icon(Icons.show_chart_rounded, color: AppColors.primary, size: 20),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Correlating hydration levels with skin redness and itching',
+                    style: AppTextStyles.bodyMuted(isDark: isDark).copyWith(fontSize: 12),
+                  ),
+                  const SizedBox(height: 24),
+                  SizedBox(
+                    height: 200,
+                    child: LineChart(
+                      LineChartData(
+                        gridData: const FlGridData(show: false),
+                        titlesData: FlTitlesData(
+                          show: true,
+                          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                          leftTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 30,
+                              getTitlesWidget: (value, meta) {
+                                return Text(
+                                  value.toInt().toString(),
+                                  style: TextStyle(
+                                    fontSize: 9,
+                                    fontWeight: FontWeight.bold,
+                                    color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+                                  ),
+                                );
+                              },
+                            ),
+                          ),
+                          bottomTitles: AxisTitles(
+                            sideTitles: SideTitles(
+                              showTitles: true,
+                              reservedSize: 22,
+                              getTitlesWidget: (value, meta) {
+                                final idx = value.toInt();
+                                if (idx >= 0 && idx < recentLogs.length) {
+                                  final dateStr = recentLogs[idx]['date'] as String? ?? '';
+                                  String formatted = dateStr;
+                                  try {
+                                    final parts = dateStr.split('-');
+                                    if (parts.length == 3) {
+                                      formatted = "${parts[1]}/${parts[2]}";
+                                    }
+                                  } catch (_) {}
+                                  return Padding(
+                                    padding: const EdgeInsets.only(top: 6.0),
+                                    child: Text(
+                                      formatted,
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+                                      ),
+                                    ),
+                                  );
+                                }
+                                return const SizedBox.shrink();
+                              },
+                            ),
+                          ),
+                        ),
+                        borderData: FlBorderData(show: false),
+                        minY: 0,
+                        maxY: 5.5,
+                        lineBarsData: [
+                          LineChartBarData(
+                            spots: itchSpots,
+                            isCurved: true,
+                            color: AppColors.primary,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(show: false),
+                          ),
+                          LineChartBarData(
+                            spots: redSpots,
+                            isCurved: true,
+                            color: AppColors.danger,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(show: false),
+                          ),
+                          LineChartBarData(
+                            spots: waterSpots,
+                            isCurved: true,
+                            color: AppColors.accent,
+                            barWidth: 3,
+                            dotData: const FlDotData(show: true),
+                            belowBarData: BarAreaData(show: false),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildLegendItem("Itching", AppColors.primary),
+                      _buildLegendItem("Redness", AppColors.danger),
+                      _buildLegendItem("Hydration (Scaled)", AppColors.accent),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withOpacity(0.05),
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: AppColors.primary.withOpacity(0.15)),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.health_and_safety_rounded, color: AppColors.primary, size: 20),
+                      const SizedBox(width: 8),
+                      Text(
+                        "Clinical Advisory",
+                        style: TextStyle(
+                          color: isDark ? Colors.white : AppColors.lightTextPrimary,
+                          fontWeight: FontWeight.bold,
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    "High water intake promotes cellular skin barrier recovery, reducing structural dryness and hypersensitive pruritus (itching) triggers. Notice how skin flares correlate to days with lower hydration values.",
+                    style: TextStyle(
+                      color: isDark ? Colors.white70 : AppColors.lightTextSecondary,
+                      fontSize: 12,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+          ],
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            onPressed: _fetchDiaryEntries,
-            tooltip: 'Reload entries',
+      ),
+    );
+  }
+
+  Widget _buildSummaryStatCard({
+    required String title,
+    required String value,
+    required Color color,
+    required bool isDark,
+  }) {
+    return GlassCard(
+      padding: const EdgeInsets.all(12),
+      borderRadius: 16,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+              color: isDark ? AppColors.textMuted : AppColors.lightTextMuted,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+              color: color,
+            ),
           ),
         ],
       ),
-      body: bodyContent,
+    );
+  }
+
+  Widget _buildLegendItem(String name, Color color) {
+    return Row(
+      children: [
+        Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+          ),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          name,
+          style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
+    return DefaultTabController(
+      length: 2,
+      child: Scaffold(
+        backgroundColor: widget.isEmbedded ? Colors.transparent : (isDark ? AppColors.background : AppColors.lightBackground),
+        appBar: widget.isEmbedded
+            ? PreferredSize(
+                preferredSize: const Size.fromHeight(48),
+                child: TabBar(
+                  tabs: const [
+                    Tab(text: "Scan History"),
+                    Tab(text: "Symptom Trends"),
+                  ],
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: isDark ? Colors.white54 : Colors.black54,
+                  indicatorColor: AppColors.primary,
+                  dividerColor: Colors.transparent,
+                ),
+              )
+            : AppBar(
+                title: Text(
+                  'DermaScan AI',
+                  style: AppTextStyles.title(isDark: isDark),
+                ),
+                bottom: TabBar(
+                  tabs: const [
+                    Tab(text: "Scan History"),
+                    Tab(text: "Symptom Trends"),
+                  ],
+                  labelColor: AppColors.primary,
+                  unselectedLabelColor: isDark ? Colors.white54 : Colors.black54,
+                  indicatorColor: AppColors.primary,
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.refresh_rounded),
+                    onPressed: () {
+                      _fetchDiaryEntries();
+                      _fetchSymptomLogs();
+                    },
+                    tooltip: 'Reload data',
+                  ),
+                ],
+              ),
+        body: TabBarView(
+          children: [
+            _buildScanHistoryTab(),
+            _buildSymptomTrendsTab(),
+          ],
+        ),
+      ),
     );
   }
 }

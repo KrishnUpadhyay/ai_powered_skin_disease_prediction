@@ -39,6 +39,9 @@ env/
 
 # Large binaries and model checkpoints (GitHub 100MB limit)
 backend/model/skin_model.h5
+backend/models/*.h5
+backend/models/*.keras
+backend/data/
 
 # Local persistent databases
 backend/diary.db
